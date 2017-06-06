@@ -92,6 +92,8 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          
+          cout << "px=" << px << ",py=" << py << ",psi=" << psi << ",v=" << v << std::endl;
 
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
@@ -108,9 +110,11 @@ int main() {
           for(int i = 0; i < N; i++) {
             ptsx_vc[i] = (ptsx[i] - px) * cos(-psi) - (ptsy[i] - py) * sin(-psi);
             ptsy_vc[i] = (ptsy[i] - py) * cos(-psi) + (ptsx[i] - px) * sin(-psi);
+            cout << ptsx[i] << " ===> " << ptsx_vc[i] << std::endl;
+            cout << ptsy[i] << " ===> " << ptsy_vc[i] << std::endl;
           }
 
-          auto coeffs = polyfit(ptsx_vc, ptsy_vc, 1) ;
+          auto coeffs = polyfit(ptsx_vc, ptsy_vc, 3);
 
           // TODO: calculate the cross track error
           double cte = polyeval(coeffs, 0) - py;
