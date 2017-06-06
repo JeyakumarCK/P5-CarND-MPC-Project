@@ -92,8 +92,17 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          
-          cout << "px=" << px << ",py=" << py << ",psi=" << psi << ",v=" << v << std::endl;
+          double steer_angle = j[1]["steering_angle"];
+          double acceleration = j[1]["throttle"];
+          double latency = 0.1;
+          // cout << "Before Latency=> px=" << px << ",py=" << py << ",psi=" << psi << ",v=" << v << std::endl;
+          // // // predict state in 100ms
+          // px = px + v*cos(psi)*latency;
+          // py = py + v*sin(psi)*latency;
+          // psi = psi + v*steer_angle/2.67*latency;
+          // v = v + acceleration*latency;
+          cout << "px=" << px << ", py=" << py << ", psi=" << psi << ", v=" << v << ", steer_angle=" << steer_angle << ", acceleration=" << acceleration << std::endl;
+          // cout << "ptsx.size()=" << ptsx.size() << "ptsy.size()=" << ptsx.size() << std::endl;
 
           /*
           * TODO: Calculate steeering angle and throttle using MPC.
@@ -110,19 +119,26 @@ int main() {
           for(int i = 0; i < N; i++) {
             ptsx_vc[i] = (ptsx[i] - px) * cos(-psi) - (ptsy[i] - py) * sin(-psi);
             ptsy_vc[i] = (ptsy[i] - py) * cos(-psi) + (ptsx[i] - px) * sin(-psi);
-            cout << ptsx[i] << " ===> " << ptsx_vc[i] << std::endl;
-            cout << ptsy[i] << " ===> " << ptsy_vc[i] << std::endl;
+            // cout << ptsx[i] << " ===> " << ptsx_vc[i] << std::endl;
+            // cout << ptsy[i] << " ===> " << ptsy_vc[i] << std::endl;
           }
 
           auto coeffs = polyfit(ptsx_vc, ptsy_vc, 3);
 
+          // Put latency into initial state values
+          px = v*latency;
+          psi = -v*steer_angle*latency/2.67;
+
           // TODO: calculate the cross track error
-          double cte = polyeval(coeffs, 0) - py;
+          // double cte = polyeval(coeffs, 0) - py;
+          double cte = polyeval(coeffs, px);
+
           // TODO: calculate the orientation error
-          double epsi = -atan(coeffs[1]);
+          // double epsi = -atan(coeffs[1]);
+          double epsi = atan(coeffs[1]+2*coeffs[2]*px);
           
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
+          state << px, 0, psi, v, cte, epsi;
           
           auto vars = mpc.Solve(state, coeffs);
           cout << "vars = " << vars[0] << ", " << vars[1] << ", " << vars[2] << ", " << vars[3] << std::endl;
@@ -130,7 +146,7 @@ int main() {
           double steer_value;
           double throttle_value;
 
-          steer_value = vars[0] / deg2rad(25);
+          steer_value = -vars[0];// / deg2rad(25);
           throttle_value = vars[1];
 
           json msgJson;
@@ -145,8 +161,12 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-          mpc_x_vals = { vars[2] };
-          mpc_y_vals = { vars[3] };
+          for (int i = 0; i < N; i++) {
+            mpc_x_vals.push_back(vars[2*i + 2]);
+            mpc_y_vals.push_back(vars[2*i + 3]);
+            // mpc_x_vals.push_back(vars[2]);
+            // mpc_y_vals.push_back(vars[3]);
+          }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -157,8 +177,12 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-          next_x_vals.push_back(vars[0]);
-          next_y_vals.push_back(vars[1]);
+          // next_x_vals.push_back(vars[0]);
+          // next_y_vals.push_back(vars[1]);
+          for (int i = 0; i < N; ++i ) {
+            next_x_vals.push_back(ptsx_vc[i]);
+            next_y_vals.push_back(ptsy_vc[i]);
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
