@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 10;
-double dt = 0.1;
+size_t N = 15;
+double dt = 0.05;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -25,7 +25,7 @@ double ref_cte = 0;
 double ref_epsi = 0;
 // NOTE: feel free to play around with this
 // or do something completely different
-double ref_v = 40;
+double ref_v = 50;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -38,6 +38,14 @@ size_t cte_start = v_start + N;
 size_t epsi_start = cte_start + N;
 size_t delta_start = epsi_start + N;
 size_t a_start = delta_start + N - 1;
+
+const double w_state_cte = 300.0;
+const double w_state_epsi = 50.0;
+const double w_state_v = 1.0;
+const double w_val_steering = 200.0;
+const double w_val_throttle = 50.0;  
+const double w_seq_steering = 5000.0;
+const double w_seq_throttle = 100.0;
 
 class FG_eval {
  public:
@@ -59,27 +67,23 @@ class FG_eval {
     // TODO: Define the cost related the reference state and
     // any anything you think may be beneficial.
 
-    const int w1 = 10000;
-    const int w2 = 8000;
-    const int w3 = 250;
-
     // The part of the cost based on the reference state.
     for (int i = 0; i < N; i++) {
-      fg[0] += w1 * CppAD::pow(vars[cte_start + i] - ref_cte, 2);
-      fg[0] += CppAD::pow(vars[epsi_start + i] - ref_epsi, 2);
-      fg[0] += CppAD::pow(vars[v_start + i] - ref_v, 2);
+      fg[0] += w_state_cte * CppAD::pow(vars[cte_start + i] - ref_cte, 2);
+      fg[0] += w_state_epsi * CppAD::pow(vars[epsi_start + i] - ref_epsi, 2);
+      fg[0] += w_state_v * CppAD::pow(vars[v_start + i] - ref_v, 2);
     }
 
     // Minimize the use of actuators.
     for (int i = 0; i < N - 1; i++) {
-      fg[0] += w2 * CppAD::pow(vars[delta_start + i], 2);
-      fg[0] += CppAD::pow(vars[a_start + i], 2);
+      fg[0] += w_val_steering * CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += w_val_throttle * CppAD::pow(vars[a_start + i], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += w3 * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
-      fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
+      fg[0] += w_seq_steering * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += w_seq_throttle * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
     //
@@ -118,8 +122,11 @@ class FG_eval {
       AD<double> delta0 = vars[delta_start + i];
       AD<double> a0 = vars[a_start + i];
 
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> psides0 = CppAD::atan(coeffs[1]);
+      // AD<double> f0 = coeffs[0] + coeffs[1] * x0;
+      // AD<double> psides0 = CppAD::atan(coeffs[1]);
+      AD<double> f0       = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0;
+      AD<double> f0_deriv = coeffs[1]+ 2.0 * coeffs[2] * x0;
+      AD<double> psides0  = CppAD::atan(f0_deriv);
 
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
@@ -203,14 +210,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // degrees (values in radians).
   // NOTE: Feel free to change this to something else.
   for (int i = delta_start; i < a_start; i++) {
-    vars_lowerbound[i] = -0.436332;
-    vars_upperbound[i] = 0.436332;
+    vars_lowerbound[i] = -0.5;
+    vars_upperbound[i] = 0.5;
   }
 
   // Acceleration/decceleration upper and lower limits.
   // NOTE: Feel free to change this to something else.
   for (int i = a_start; i < n_vars; i++) {
-    vars_lowerbound[i] = -1.0;
+    vars_lowerbound[i] = -0.5;
     vars_upperbound[i] = 1.0;
   }
 
@@ -278,6 +285,16 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
   // creates a 2 element double vector.
   // return {};
+
+  // Preserve position vector data
+  this->mpc_x = {};
+  this->mpc_y = {};
+  for (int i=0; i<N; i++)
+  {
+    this->mpc_x.push_back(solution.x[x_start+i]);
+    this->mpc_y.push_back(solution.x[y_start+i]);
+  } 
+
   return {solution.x[x_start + 1],   solution.x[y_start + 1],
           solution.x[psi_start + 1], solution.x[v_start + 1],
           solution.x[cte_start + 1], solution.x[epsi_start + 1],
