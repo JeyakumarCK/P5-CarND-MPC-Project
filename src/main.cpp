@@ -103,6 +103,15 @@ int main() {
           *
           */
           // TODO: fit a polynomial to the above x and y coordinates
+          
+          // predict state in 100ms
+          double latency = 0.05; 
+          double delta = j[1]["steering_angle"];
+          double acceleration = j[1]["throttle"];
+          px = px + v*cos(psi)*latency;
+          py = py + v*sin(psi)*latency;
+          psi = psi + v*delta/2.67*latency;
+          v = v + acceleration*latency;
 
           // Convert to the vehicle coordinate system
           Eigen::VectorXd ptsx_vc(N);
@@ -132,10 +141,31 @@ int main() {
             next_y[k] = polyeval(coeffs, next_x[k]);
           }
 
-          Eigen::VectorXd state(N);
-          state << 0.0, 0.0, 0.0, v, cte, epsi;
-          // state << px, py, psi, v, cte, epsi;
+          double latency_dt = 0.1; // 100 ms
+          double Lf = 2.67;
+          double throttle = j[1]["throttle"];
+          double steering_angle = j[1]["steering_angle"];
+
+          double latency_x = v * latency_dt;
+          double latency_y = 0;
+          double latency_psi = -(v / Lf) * steering_angle * latency_dt;
+          double latency_v = v + throttle * latency_dt;
+          double latency_cte = cte + v * sin(epsi) * latency_dt;
+
+          // Compute the expected heading based on coeffs.
+          double expected_psi = atan(coeffs[1] + 
+                                2.0 * coeffs[2] * latency_x + 
+                                3.0 * coeffs[3] * latency_x*latency_x);
+
+          // Compute the latent heading error.
+          double latency_epsi = psi - expected_psi;
           
+          // Compose the state to pass into the solver.
+          Eigen::VectorXd state(6); // State has 6 elements
+          state << latency_x, latency_y, latency_psi, latency_v, latency_cte, latency_epsi;
+          // state << 0.0, 0.0, 0.0, v, cte, epsi;
+          // state << px, py, psi, v, cte, epsi;
+
           auto vars = mpc.Solve(state, coeffs);
           // cout << "vars = " << vars[0] << ", " << vars[1] << ", " << vars[2] << ", " << vars[3];
           // cout << " vars = " << vars[4] << ", " << vars[5] << ", " << vars[6] << ", " << vars[7] << std::endl;
