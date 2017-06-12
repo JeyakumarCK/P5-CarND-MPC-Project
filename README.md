@@ -3,6 +3,19 @@ Self-Driving Car Engineer Nanodegree Program
 
 ---
 
+## The Model
+
+Mathematical models embodies the the dynamics of a vehicle in to a model that emulates a vehicle dynamics & forces as closely as possible.  Here we are using Global Kinematic model, which is a simplified version of dynamic models. This model ultimately calculates the state of a vehicle at a given time based on various forces that are modeled to be acting on the vehicle.  A state is represented by its x & y position in its coordinate system, the steering angle and velocity.  The vehicle state in the near future time is predicted based on the current state and the mathematical model.  Similarly, the actuator values are also calculated as part of the model.  Actuators are the steering angle and the acceleration that needs to be sent to the vehicle controllers to move the vehicle to the next state.  In this project, the model is developed in MPC.cpp file.  The operator() function of FG_eval class embodies the global kinematic model and thereby calculates the state and actuator values at t+1.
+
+## N & dt
+
+## Polynomial Fitting and MPC Preprocessing
+
+## MPC Latency
+
+
+---
+
 ## Dependencies
 
 * cmake >= 3.5

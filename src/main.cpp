@@ -102,17 +102,6 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          // TODO: fit a polynomial to the above x and y coordinates
-          
-          // predict state in 100ms
-          double latency = 0.05; 
-          double delta = j[1]["steering_angle"];
-          double acceleration = j[1]["throttle"];
-          px = px + v*cos(psi)*latency;
-          py = py + v*sin(psi)*latency;
-          psi = psi + v*delta/2.67*latency;
-          v = v + acceleration*latency;
-
           // Convert to the vehicle coordinate system
           Eigen::VectorXd ptsx_vc(N);
           Eigen::VectorXd ptsy_vc(N);
@@ -121,6 +110,7 @@ int main() {
             ptsy_vc[i] = (ptsy[i] - py) * cos(psi) - (ptsx[i] - px) * sin(psi);
           }
 
+          // TODO: fit a polynomial to the above x and y coordinates
           auto coeffs = polyfit(ptsx_vc, ptsy_vc, 3);
 
           // TODO: calculate the cross track error
@@ -141,6 +131,7 @@ int main() {
             next_y[k] = polyeval(coeffs, next_x[k]);
           }
 
+          // Incorporate any latency 
           double latency_dt = 0.1; // 100 ms
           double Lf = 2.67;
           double throttle = j[1]["throttle"];
